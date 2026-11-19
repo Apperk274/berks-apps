@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "apps": [
+    {
+      "name": "Auto Caster",
+      "package": "dev.personal.autocaster",
+      "description": "Mirrors your phone screen to the Android Auto display.",
+      "version": "0.1.0",
+      "versionCode": 1,
+      "apkUrl": null,
+      "apkSha256": null,
+      "signingCertSha256": "898249fd07c590fc1d4dd02c6f543cdc790d2df8ca5bdb4ebf9499520729cd71"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        c0c5da7 dev.personal.autocaster/.MainActivity filter bf6f254
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        6f2f5fd dev.personal.autocaster/androidx.profileinstaller.ProfileInstallReceiver filter 9fadfc0
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        6f2f5fd dev.personal.autocaster/androidx.profileinstaller.ProfileInstallReceiver filter b1402f2
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        6f2f5fd dev.personal.autocaster/androidx.profileinstaller.ProfileInstallReceiver filter 9972d43
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        6f2f5fd dev.personal.autocaster/androidx.profileinstaller.ProfileInstallReceiver filter e7df4f9
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Service Resolver Table:
+  Non-Data Actions:
+      androidx.car.app.CarAppService:
+        38e37ec dev.personal.autocaster/.car.MirrorCarAppService filter 51fe7b5
+          Action: "androidx.car.app.CarAppService"
+          Category: "androidx.car.app.category.NAVIGATION"
+      android.accessibilityservice.AccessibilityService:
+        ddb5c3e dev.personal.autocaster/.touch.TouchControlService filter 2755a9f permission android.permission.BIND_ACCESSIBILITY_SERVICE
+          Action: "android.accessibilityservice.AccessibilityService"
+
+Domain verification status:
+
+Permissions:
+  Permission [dev.personal.autocaster.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (d9b723a):
+    sourcePackage=dev.personal.autocaster
+    uid=10236 gids=[] type=0 prot=signature
+    perm=PermissionInfo{ad97eeb dev.personal.autocaster.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  dev.personal.autocaster/androidx.startup.InitializationProvider:
+    Provider{808d448 dev.personal.autocaster/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [dev.personal.autocaster.androidx-startup]:
+    Provider{808d448 dev.personal.autocaster/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{42082e1 dev.personal.autocaster}
+
+Key Set Manager:
+  [dev.personal.autocaster]
+      Signing KeySets: 69
+
+Packages:
+  Package [dev.personal.autocaster] (eb9bb87):
+    appId=10236
+    pccId=-1
+    pkg=Package{4be7806 dev.personal.autocaster}
+    codePath=/data/app/~~7DGGk3d-rPJuHOBxbvmAhg==/dev.personal.autocaster-TMRijQwklGAUPTENc5-_NA==
+    resourcePath=/data/app/~~7DGGk3d-rPJuHOBxbvmAhg==/dev.personal.autocaster-TMRijQwklGAUPTENc5-_NA==
+    legacyNativeLibraryDir=/data/app/~~7DGGk3d-rPJuHOBxbvmAhg==/dev.personal.autocaster-TMRijQwklGAUPTENc5-_NA==/lib
+    extractNativeLibs=false
+    primaryCpuAbi=null
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=26 targetSdk=37
+    minExtensionVersions=[]
+    versionName=0.1.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    timeStamp=2026-11-20 00:15:10
+    lastUpdateTime=2026-11-20 00:15:10
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{8ba0e92 version:2, signatures:[3598bd4d], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      dev.personal.autocaster.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      dev.personal.autocaster.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.POST_NOTIFICATIONS
+      android.permission.FOREGROUND_SERVICE
+      android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION
+      androidx.car.app.ACCESS_SURFACE
+      android.permission.TURN_SCREEN_ON
+      androidx.car.app.NAVIGATION_TEMPLATES
+      android.permission.WAKE_LOCK
+    install permissions:
+      dev.personal.autocaster.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.FOREGROUND_SERVICE: granted=true
+      android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION: granted=true
+      android.permission.WAKE_LOCK: granted=true
+    User 0: ceDataInode=566018 deDataInode=401950 pccCeDataInode=0 pccDeDataInode=0 installed=true hidden=false suspended=false appLockEnabled=false distractionFlags=0 stopped=true notLaunched=true enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/dev.personal.autocaster
+      firstInstallTime=2026-11-20 00:15:10
+      uninstallReason=0
+      runtime permissions:
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.google.android.as.oss:
+      dev.personal.autocaster
+    com.google.android.as:
+      dev.personal.autocaster
+    com.google.android.settings.intelligence:
+      dev.personal.autocaster
+    com.google.android.apps.accessibility.voiceaccess:
+      dev.personal.autocaster
+  queryable via interaction:
+    User 0:
+  queryable via uses-library:
+
+Dexopt state:
+  [dev.personal.autocaster]
+    path: /data/app/~~7DGGk3d-rPJuHOBxbvmAhg==/dev.personal.autocaster-TMRijQwklGAUPTENc5-_NA==/base.apk
+      x86_64: [status=run-from-apk] [reason=unknown] [primary-abi]
+        [location is error]
