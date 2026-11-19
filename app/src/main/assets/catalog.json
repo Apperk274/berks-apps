@@ -7,8 +7,8 @@
       "description": "Mirrors your phone screen to the Android Auto display.",
       "version": "0.1.0",
       "versionCode": 1,
-      "apkUrl": null,
-      "apkSha256": null,
+      "apkUrl": "https://github.com/Apperk274/berks-apps/releases/download/autocaster-v0.1.0/autocaster-0.1.0.apk",
+      "apkSha256": "3f28cfa6ef93939829a08607810f0c8e7926b75ec4eaf455c334f0edc274114b",
       "signingCertSha256": "97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6"
     },
     {
@@ -17,8 +17,8 @@
       "description": "This app. Installs and updates Berk's Android Auto apps.",
       "version": "0.1.0",
       "versionCode": 1,
-      "apkUrl": null,
-      "apkSha256": null,
+      "apkUrl": "https://github.com/Apperk274/berks-apps/releases/download/berksapps-v0.1.0/berksapps-0.1.0.apk",
+      "apkSha256": "34853b4f3240bfca50d56bfdb98d101728d367f6c3b16b6d6d2a6f999b27915b",
       "signingCertSha256": "97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6"
     }
   ]
