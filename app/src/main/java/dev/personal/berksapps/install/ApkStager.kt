@@ -7,11 +7,15 @@ import android.net.Uri
 import dev.personal.berksapps.catalog.ApkFacts
 import dev.personal.berksapps.catalog.ApkVerifier
 import dev.personal.berksapps.catalog.CatalogEntry
+import dev.personal.berksapps.catalog.DownloadCancelledException
+import dev.personal.berksapps.catalog.DownloadControl
+import dev.personal.berksapps.catalog.DownloadPolicy
 import dev.personal.berksapps.catalog.HttpsFetcher
 import dev.personal.berksapps.catalog.Verification
 import dev.personal.berksapps.core.Hashing
 import java.io.File
 import java.io.IOException
+import java.net.UnknownHostException
 
 data class StagedApk(
     val facts: ApkFacts,
@@ -23,6 +27,7 @@ data class StagedApk(
 sealed class StageResult {
     data class Ready(val staged: StagedApk) : StageResult()
     data class Refused(val reason: String) : StageResult()
+    data object Cancelled : StageResult()
 }
 
 class ApkStager(context: Context) {
@@ -57,14 +62,32 @@ class ApkStager(context: Context) {
         return finish(catalog, null)
     }
 
-    fun fromDownload(entry: CatalogEntry): StageResult {
+    fun fromDownload(
+        entry: CatalogEntry,
+        policy: DownloadPolicy,
+        control: DownloadControl,
+        onProgress: (done: Long, total: Long) -> Unit,
+    ): StageResult {
         val url = entry.apkUrl ?: return StageResult.Refused("This app has no download address yet.")
         prepare()
         try {
-            HttpsFetcher.download(url, incoming, MAX_APK_BYTES)
+            HttpsFetcher.download(url, incoming, MAX_APK_BYTES, policy, control, onProgress)
+        } catch (e: DownloadCancelledException) {
+            return StageResult.Cancelled
+        } catch (e: UnknownHostException) {
+            if (control.cancelled) return StageResult.Cancelled
+            return StageResult.Refused("The download did not start. Check the internet connection and try again.")
         } catch (e: Exception) {
             incoming.delete()
-            return StageResult.Refused("The download did not work: ${e.message ?: "network error"}")
+            if (control.cancelled) return StageResult.Cancelled
+            return StageResult.Refused(
+                "The download did not work (${e.message ?: "network error"}). Check the internet " +
+                    "connection and try again."
+            )
+        }
+        if (control.cancelled) {
+            incoming.delete()
+            return StageResult.Cancelled
         }
         return finish(listOf(entry), entry)
     }

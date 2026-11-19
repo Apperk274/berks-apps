@@ -1,6 +1,7 @@
 package dev.personal.berksapps.catalog
 
 import android.content.Context
+import dev.personal.berksapps.BuildOverrides
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -22,9 +23,11 @@ class CatalogRepository(context: Context) {
 
     suspend fun load(): LoadedCatalog = withContext(Dispatchers.IO) {
         val bundled = bundled()
+        val policy = BuildOverrides.policy(appContext)
+        val url = BuildOverrides.catalogUrl(appContext) ?: CATALOG_URL
         val online = try {
-            val text = HttpsFetcher.fetchText(CATALOG_URL, MAX_CATALOG_BYTES)
-            val parsed = CatalogParser.parse(text)
+            val text = HttpsFetcher.fetchText(url, MAX_CATALOG_BYTES, policy)
+            val parsed = CatalogParser.parse(text, policy)
             cacheFile.writeText(text)
             parsed
         } catch (e: Exception) {
@@ -35,7 +38,7 @@ class CatalogRepository(context: Context) {
             return@withContext LoadedCatalog(merged.entries, CatalogSource.Online, merged.rejected)
         }
         val saved = try {
-            if (cacheFile.exists()) CatalogParser.parse(cacheFile.readText()) else null
+            if (cacheFile.exists()) CatalogParser.parse(cacheFile.readText(), policy) else null
         } catch (e: Exception) {
             null
         }
@@ -50,6 +53,7 @@ class CatalogRepository(context: Context) {
     companion object {
         const val CATALOG_URL =
             "https://raw.githubusercontent.com/Apperk274/berks-apps/main/app/src/main/assets/catalog.json"
+        const val RELEASES_PAGE = "https://github.com/Apperk274/berks-apps/releases"
         private const val MAX_CATALOG_BYTES = 256 * 1024
     }
 }

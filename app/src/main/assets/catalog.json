@@ -9,7 +9,17 @@
       "versionCode": 1,
       "apkUrl": null,
       "apkSha256": null,
-      "signingCertSha256": "898249fd07c590fc1d4dd02c6f543cdc790d2df8ca5bdb4ebf9499520729cd71"
+      "signingCertSha256": "97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6"
+    },
+    {
+      "name": "Berk's Apps",
+      "package": "dev.personal.berksapps",
+      "description": "This app. Installs and updates Berk's Android Auto apps.",
+      "version": "0.1.0",
+      "versionCode": 1,
+      "apkUrl": null,
+      "apkSha256": null,
+      "signingCertSha256": "97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6"
     }
   ]
 }

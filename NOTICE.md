@@ -63,9 +63,18 @@ Test-only (not in the APK): JUnit 4 (EPL-1.0), org.json (Public Domain).
 spake2-android is used unmodified, as a separate library fetched by Gradle from
 JitPack. Its source is at https://github.com/MuntashirAkon/spake2-java. To use a
 modified version, change the dependency (or substitute a local build) and rebuild
-this app from source; nothing in this project prevents that. If the APK is ever
-distributed to other people, ship this notice with it and keep the app's source (or
-at least its object code in relinkable form) available to them, as the LGPL requires.
+this app from source; nothing in this project prevents that. The Berk's Apps APK is
+distributed through the GitHub releases of https://github.com/Apperk274/berks-apps,
+the same public repository that holds this notice and the complete source of the app,
+so anyone who receives the APK can rebuild it with a different version of the library.
+Keep it that way: if the APK is ever handed out from somewhere else, this notice and a
+link to the source must go with it.
+
+## Other apps offered in the list
+
+Auto Caster is distributed from the same releases page as a separate app. It is not
+part of Berk's Apps and its source is not in this repository. It uses AndroidX
+libraries (Apache-2.0), including the Android for Cars App Library.
 
 Full licence texts: Apache-2.0 https://www.apache.org/licenses/LICENSE-2.0,
 LGPL-3.0 https://www.gnu.org/licenses/lgpl-3.0.html,

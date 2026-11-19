@@ -4,7 +4,6 @@ import dev.personal.berksapps.core.Hashing
 import dev.personal.berksapps.core.Names
 import org.json.JSONException
 import org.json.JSONObject
-import java.net.URI
 
 data class CatalogEntry(
     val name: String,
@@ -28,7 +27,7 @@ object CatalogParser {
     private const val MAX_ENTRIES = 200
     private const val MAX_TEXT = 2000
 
-    fun parse(json: String): Catalog {
+    fun parse(json: String, policy: DownloadPolicy = DownloadPolicy.RELEASE): Catalog {
         try {
             val root = JSONObject(json)
             val schema = root.optInt("schemaVersion", -1)
@@ -42,7 +41,7 @@ object CatalogParser {
             val entries = ArrayList<CatalogEntry>()
             val seen = HashSet<String>()
             for (i in 0 until apps.length()) {
-                val entry = parseEntry(apps.getJSONObject(i))
+                val entry = parseEntry(apps.getJSONObject(i), policy)
                 if (!seen.add(entry.packageName)) {
                     throw CatalogFormatException("Duplicate package: ${entry.packageName}")
                 }
@@ -54,16 +53,7 @@ object CatalogParser {
         }
     }
 
-    fun isHttpsUrl(url: String): Boolean = try {
-        val uri = URI(url)
-        "https".equals(uri.scheme, ignoreCase = true) &&
-            !uri.host.isNullOrEmpty() &&
-            uri.userInfo == null
-    } catch (e: Exception) {
-        false
-    }
-
-    private fun parseEntry(o: JSONObject): CatalogEntry {
+    private fun parseEntry(o: JSONObject, policy: DownloadPolicy): CatalogEntry {
         val pkg = text(o, "package")
         if (!Names.isPackageName(pkg)) {
             throw CatalogFormatException("Invalid package name: $pkg")
@@ -80,8 +70,8 @@ object CatalogParser {
                 ?: throw CatalogFormatException("$pkg: apkSha256 must be 64 hex digits")
         }
         if (url != null) {
-            if (!isHttpsUrl(url)) {
-                throw CatalogFormatException("$pkg: apkUrl must be an https:// URL")
+            if (!policy.allows(url)) {
+                throw CatalogFormatException("$pkg: apkUrl must be an https:// address on an allowed host")
             }
             if (hash == null) {
                 throw CatalogFormatException("$pkg: apkUrl needs apkSha256")

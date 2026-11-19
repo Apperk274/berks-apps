@@ -36,7 +36,7 @@ class CatalogTest {
         description = "",
         version = "0.1.0",
         versionCode = 1,
-        apkUrl = if (url) "https://example.com/a.apk" else null,
+        apkUrl = if (url) "https://github.com/Apperk274/berks-apps/releases/download/t/a.apk" else null,
         apkSha256 = if (url) hash else null,
         signingCertSha256 = cert,
     )
@@ -62,7 +62,7 @@ class CatalogTest {
     fun parsesDownloadableEntryAndNormalizesDigests() {
         val colonCert = certA.chunked(2).joinToString(":").uppercase()
         val catalog = CatalogParser.parse(
-            json(app(cert = colonCert, extra = ""","apkUrl":"https://example.com/a.apk","apkSha256":"${hash.uppercase()}""""))
+            json(app(cert = colonCert, extra = ""","apkUrl":"https://github.com/Apperk274/berks-apps/releases/download/t/a.apk","apkSha256":"${hash.uppercase()}""""))
         )
         val e = catalog.entries.single()
         assertTrue(e.downloadable)
@@ -81,14 +81,14 @@ class CatalogTest {
     @Test
     fun rejectsHttpUrl() {
         assertThrows(CatalogFormatException::class.java) {
-            CatalogParser.parse(json(app(extra = ""","apkUrl":"http://example.com/a.apk","apkSha256":"$hash"""")))
+            CatalogParser.parse(json(app(extra = ""","apkUrl":"http://github.com/a.apk","apkSha256":"$hash"""")))
         }
     }
 
     @Test
     fun rejectsUrlWithoutHash() {
         assertThrows(CatalogFormatException::class.java) {
-            CatalogParser.parse(json(app(extra = ""","apkUrl":"https://example.com/a.apk"""")))
+            CatalogParser.parse(json(app(extra = ""","apkUrl":"https://github.com/Apperk274/berks-apps/releases/download/t/a.apk"""")))
         }
     }
 
@@ -109,15 +109,6 @@ class CatalogTest {
         assertThrows(CatalogFormatException::class.java) {
             CatalogParser.parse("not json")
         }
-    }
-
-    @Test
-    fun httpsCheck() {
-        assertTrue(CatalogParser.isHttpsUrl("https://example.com/x"))
-        assertFalse(CatalogParser.isHttpsUrl("http://example.com/x"))
-        assertFalse(CatalogParser.isHttpsUrl("file:///sdcard/x.apk"))
-        assertFalse(CatalogParser.isHttpsUrl("https://user:pw@example.com/x"))
-        assertFalse(CatalogParser.isHttpsUrl("https:///nohost"))
     }
 
     @Test

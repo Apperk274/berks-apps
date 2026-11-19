@@ -25,9 +25,10 @@ Berk's Apps uses the same install mechanism in one app.
 
 ## Installing an app
 
-1. Open Berk's Apps. On the **Apps** tab, tap **Install from file** and pick the APK
-   (for Auto Caster, its `app-debug.apk`). Apps that have a published download show
-   **Download and install** instead.
+1. Open Berk's Apps. On the **Apps** tab, tap **Install** (or **Update to …**) on the
+   app. It is downloaded from this project's GitHub releases, with a progress bar and a
+   **Cancel download** button. **Install from file** is still there if you already have
+   the APK.
 2. Berk's Apps checks the file: it must be a real APK, its package must match, and its
    signing certificate must match the one in the app list. Downloads must also match
    the SHA-256 in the list. On any mismatch it refuses.
@@ -39,11 +40,30 @@ Berk's Apps uses the same install mechanism in one app.
 6. Berk's Apps shows **Accepted by Android Auto** or **Not accepted by Android Auto**,
    with the two values it read back.
 
-If an app was sideloaded before (for example with `adb install`), just install it
-again from here; the same version is fine and its data is kept.
+If an app was sideloaded before with the same signing key, just install it again from
+here; the same version is fine and its data is kept.
 
-Each app in the list shows whether it is installed, whether an update is available,
-and whether its current install record is one Android Auto accepts.
+Each app in the list shows the installed version next to the latest one, whether an
+update is available, and whether its current install record is one Android Auto
+accepts. The list is refreshed when the app starts and with **Refresh**.
+
+### Updating Berk's Apps itself
+
+Berk's Apps is in its own list. When a newer version is published it shows **Update to
+…**; the update goes through the same download, check and installer steps. Android
+closes the app while it replaces it. Open it again and it shows that it was updated.
+
+### "Signed with a different key"
+
+Android only updates an app with an APK signed by the same key. Copies installed
+before the first public release were signed with a developer debug key, so they cannot
+be updated in place. Berk's Apps notices this before it downloads anything and offers
+**Uninstall old version**; after that, **Install** works. The app's settings are lost
+with the uninstall.
+
+For an old copy of Berk's Apps itself: download `berksapps-<version>.apk` from the
+[releases page](https://github.com/Apperk274/berks-apps/releases) first, uninstall the
+old copy, then open the downloaded file.
 
 ### If it says "Not accepted by Android Auto"
 
@@ -123,16 +143,15 @@ which way worked on this phone.
 - **It depends on undocumented behaviour.** Neither Android Auto's check nor the
   installer's handling of these extras is a public contract. A future Android or
   Android Auto update can break it, and which way works differs between phones.
-- Tested on the Android 17 emulator only, not yet on a real phone or in a car.
+- Tested on the Android 17 emulator and on one Samsung phone running Android 17 (simple way). Other phones and Android versions are untested.
 - On phones that need the advanced way: **Wireless debugging must be turned on again
   after every restart** before installing or updating, and it needs Wi-Fi.
 - Single APKs only. Split APKs / XAPK are not supported (the system installer screen
   takes one file).
 - Only the primary user profile is supported.
-- **Downloads do not work yet.** The app list is fetched from a URL in
-  `CatalogRepository.CATALOG_URL`; the owner's repositories are private, so until a
-  list and an APK are published somewhere public the app uses its built-in list and
-  *Install from file*.
+- The app list and the APKs come from this GitHub repository. Without a network
+  connection the app shows the last list it saw (or its built-in one) and only
+  *Install from file* works.
 - Samsung's *Auto Blocker* (Settings → Security and privacy) may block installs from
   unknown sources. If the installer refuses, try turning it off. (Not verified.)
 - A third-party installer app set as the default for APKs (InstallerX and similar)
@@ -150,8 +169,15 @@ which way worked on this phone.
   network or the app list is ever run.
 - The ADB private key is created on the phone, stored in the app's private storage and
   encrypted with a key held in the Android Keystore. Backups are disabled.
-- Network access is HTTPS only (cleartext is disabled, redirects are followed only to
-  HTTPS), and is used only for the app list and APK downloads.
+- Network access is HTTPS only, and only to four GitHub hosts: `github.com`,
+  `raw.githubusercontent.com`, `objects.githubusercontent.com` and
+  `release-assets.githubusercontent.com`. Redirects to any other host are refused. It is
+  used only for the app list and APK downloads.
+- Every download is checked against the SHA-256 and the signing certificate in the app
+  list, and the certificate of a known app cannot be changed by the online list: it is
+  also pinned in the list built into the app.
+- Debug builds (not the released APKs) can be pointed at a test server with a file in
+  the app's private storage. That code is not compiled into release builds.
 - Exported components: the launcher activity, and one content provider that hands the
   activity's window token to the `shell` user for the Android ≤14 advanced path. It
   refuses every caller whose UID is not the shell.
@@ -174,6 +200,75 @@ Needs the Android SDK (platform `android-37.0`, build-tools `36.0.0`) and a
 `local.properties` with `sdk.dir`. The APK lands in `app/build/outputs/apk/debug/`.
 
 `DECISIONS.md` records the choices made while building this and how to change them.
+
+## Releasing
+
+Released APKs for **both** apps (Berk's Apps and Auto Caster, whose source lives in a
+separate private repository) are attached to this repository's GitHub releases, and
+`app/src/main/assets/catalog.json` on the `main` branch is the list every installed
+copy reads.
+
+**Signing key.** Both apps are signed with one release key that is *not* in any
+repository:
+
+- keystore: `%USERPROFILE%\.android\berk-release.jks` (alias `berk`, RSA 4096)
+- passwords and path: `%USERPROFILE%\.gradle\gradle.properties`, as
+  `BERK_RELEASE_STORE_FILE`, `BERK_RELEASE_STORE_PASSWORD`, `BERK_RELEASE_KEY_ALIAS`,
+  `BERK_RELEASE_KEY_PASSWORD`
+- certificate SHA-256:
+  `97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6`
+
+**Back up the keystore file and its password somewhere safe, away from this PC.** If
+either is lost, no update can ever be published for the installed apps: every user
+would have to uninstall and reinstall. Never commit them. Debug builds do not need the
+key; `assembleRelease` stops with a clear message when the properties are missing.
+
+**Naming.** One GitHub release per app version:
+
+| App | Tag | File |
+| --- | --- | --- |
+| Auto Caster | `autocaster-v<versionName>` | `autocaster-<versionName>.apk` |
+| Berk's Apps | `berksapps-v<versionName>` | `berksapps-<versionName>.apk` |
+
+**Steps.** The order matters: the catalog on `main` is what every phone reads, so it
+must only change after the files it points at exist.
+
+1. Bump `appVersionCode` and `appVersionName` at the top of the app's
+   `app/build.gradle.kts`. The version code must go up, or phones will not see an
+   update.
+2. Commit and push the source. Do not edit `catalog.json` by hand.
+3. Run the release script from this repository:
+
+   ```
+   powershell -ExecutionPolicy Bypass -File tools\release.ps1 -App all
+   ```
+
+   `-App` takes `autocaster`, `berksapps` or `all`. Auto Caster is expected next to this
+   repository in `..\android-auto-caster` (override with `-AutoCasterRepo`). For each app
+   the script builds the release APK, refuses to continue unless it has the version from
+   the Gradle file and is signed with the certificate pinned in the catalog, and copies
+   it to `dist/`. It writes the catalog with the new version, URL and SHA-256 to
+   `dist/catalog.json`. **The catalog in the working tree is left as it was.**
+
+   An app is skipped when the catalog already lists its current version code with a
+   download and its release tag exists on GitHub (checked with `gh release view`). So
+   `-App all` after bumping only one app releases only that app, and a published APK is
+   never rebuilt or re-hashed.
+4. Create the GitHub releases with the `gh release create` commands the script prints.
+5. Only then publish the catalog: copy `dist/catalog.json` over
+   `app/src/main/assets/catalog.json`, commit and push (the script prints these
+   commands too).
+
+Steps 4 and 5 are what `-Publish` does. It needs the GitHub CLI and a working tree with
+nothing uncommitted, and it stops if a release tag already exists.
+
+Releasing Auto Caster alone does not require a new Berk's Apps: installed copies read
+the online catalog.
+
+The copy of the catalog inside a Berk's Apps APK cannot contain that APK's own hash. The
+script builds Berk's Apps with a catalog that has every other app's newest entry and an
+empty download for Berk's Apps itself, then puts the working-tree file back. The online
+catalog has the full entry.
 
 ## Credits and licences
 

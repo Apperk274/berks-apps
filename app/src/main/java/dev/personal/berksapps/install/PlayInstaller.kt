@@ -12,10 +12,13 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import dev.personal.berksapps.BuildOverrides
 import dev.personal.berksapps.adb.AdbRepository
 import dev.personal.berksapps.adb.ShellCommand
 import dev.personal.berksapps.catalog.CatalogEntry
+import dev.personal.berksapps.catalog.DownloadControl
 import dev.personal.berksapps.shell.TokenProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,14 +26,16 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class InstallResult(
@@ -53,6 +58,9 @@ data class InstallUi(
     val notice: String? = null,
     val waiting: String? = null,
     val result: InstallResult? = null,
+    val progress: Float? = null,
+    val cancellable: Boolean = false,
+    val uninstallPackage: String? = null,
 )
 
 data class InstalledState(
@@ -60,6 +68,7 @@ data class InstalledState(
     val versionCode: Long,
     val installerPackageName: String?,
     val initiatingPackageName: String?,
+    val signerSha256: List<String>,
 ) {
     val accepted: Boolean
         get() = AndroidAutoRule.accepts(initiatingPackageName, installerPackageName)
@@ -75,6 +84,10 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lock = Mutex()
     private val starting = AtomicBoolean(false)
+    private val worker = Executors.newSingleThreadExecutor()
+
+    @Volatile
+    private var downloadControl: DownloadControl? = null
     private var generation = 0
     private var watcher: Job? = null
     private var sawPause = false
@@ -89,8 +102,30 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
         stager.fromUri(uri, catalog)
     }
 
-    suspend fun stageFromDownload(entry: CatalogEntry) = stage("Downloading ${entry.name}…") {
-        stager.fromDownload(entry)
+    suspend fun stageFromDownload(entry: CatalogEntry) {
+        val policy = BuildOverrides.policy(appContext)
+        var lastShown = -1
+        val control = DownloadControl()
+        stage("Downloading ${entry.name}…", control) {
+            stager.fromDownload(
+                entry,
+                policy,
+                control,
+                onProgress = { done, total ->
+                    if (total > 0) {
+                        val percent = (done * 100 / total).toInt().coerceIn(0, 100)
+                        if (percent != lastShown) {
+                            lastShown = percent
+                            state.update { if (it.cancellable) it.copy(progress = percent / 100f) else it }
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    fun cancelDownload() {
+        downloadControl?.cancel()
     }
 
     fun dismiss() {
@@ -105,7 +140,13 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
     fun installedState(packageName: String): InstalledState? {
         val info = installedInfo(packageName) ?: return null
         val (installer, initiating) = sourceFromPackageManager(packageName)
-        return InstalledState(info.versionName, info.longVersionCode, installer, initiating)
+        return InstalledState(
+            info.versionName,
+            info.longVersionCode,
+            installer,
+            initiating,
+            ApkStager.signerDigests(info),
+        )
     }
 
     suspend fun install(activity: Activity) {
@@ -172,16 +213,44 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
         }
     }
 
-    private suspend fun stage(message: String, work: () -> StageResult) = lock.withLock {
+    private suspend fun stage(
+        message: String,
+        control: DownloadControl? = null,
+        work: () -> StageResult,
+    ) = lock.withLock {
         generation++
         watcher?.cancel()
         awaitingPermission = false
         clearPending()
-        state.value = InstallUi(busy = message)
-        val result = withContext(Dispatchers.IO) { work() }
+        downloadControl = control
+        state.value = InstallUi(busy = message, cancellable = control != null)
+        val result = try {
+            runBlockingWork(control, work)
+        } catch (e: CancellationException) {
+            state.value = InstallUi()
+            throw e
+        } finally {
+            downloadControl = null
+        }
         state.value = when (result) {
             is StageResult.Ready -> InstallUi(staged = result.staged)
             is StageResult.Refused -> InstallUi(notice = result.reason)
+            StageResult.Cancelled -> InstallUi()
+        }
+    }
+
+    private suspend fun runBlockingWork(
+        control: DownloadControl?,
+        work: () -> StageResult,
+    ): StageResult = suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { control?.cancel() }
+        worker.execute {
+            val outcome = try {
+                Result.success(work())
+            } catch (t: Throwable) {
+                Result.failure(t)
+            }
+            continuation.resumeWith(outcome)
         }
     }
 
@@ -189,7 +258,12 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
         val staged = state.value.staged ?: return
         if (loadPending() != null || state.value.waiting != null || state.value.busy != null) return
         activityRef = WeakReference(activity)
-        state.value = state.value.copy(busy = "Starting…", notice = null, result = null)
+        state.value = state.value.copy(
+            busy = "Starting…",
+            notice = null,
+            result = null,
+            uninstallPackage = null,
+        )
         val installed = installedInfo(staged.facts.packageName)
         if (installed != null) {
             if (installed.longVersionCode > staged.facts.versionCode) {
@@ -202,14 +276,25 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
             }
             val current = ApkStager.signerDigests(installed)
             if (current.isNotEmpty() && current != staged.facts.signerSha256) {
-                refuse(
-                    "The installed ${staged.label} is signed with a different key. " +
-                        "Uninstall it first (its data is lost), then install this one."
-                )
+                if (isSelf(staged.facts.packageName)) {
+                    refuse(
+                        "This copy of Berk's Apps was signed with an older key, so it cannot " +
+                            "update itself. Download the new version from " +
+                            "github.com/Apperk274/berks-apps/releases, uninstall this copy, " +
+                            "then open the downloaded file to install it."
+                    )
+                } else {
+                    refuse(
+                        "The ${staged.label} on this phone was signed with a different key, so " +
+                            "Android will not update it. Uninstall the old version first (its " +
+                            "settings are lost), then tap Install again.",
+                        uninstall = staged.facts.packageName,
+                    )
+                }
                 return
             }
         }
-        val useShell = prefs.getBoolean(KEY_PREFER_SHELL, false)
+        val useShell = !isSelf(staged.facts.packageName) && prefs.getBoolean(KEY_PREFER_SHELL, false)
         val pending = Pending(
             packageName = staged.facts.packageName,
             label = staged.label,
@@ -235,8 +320,13 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
         launchViaShell(activity, pending, staged)
     }
 
-    private fun refuse(reason: String) {
-        state.value = state.value.copy(busy = null, waiting = null, notice = reason)
+    private fun refuse(reason: String, uninstall: String? = null) {
+        state.value = state.value.copy(
+            busy = null,
+            waiting = null,
+            notice = reason,
+            uninstallPackage = uninstall,
+        )
     }
 
     private fun stillStaged(staged: StagedApk): Boolean =
@@ -362,7 +452,8 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
             installed = now != null,
             lastUpdateBefore = pending.lastUpdateBefore,
             lastUpdateNow = now?.lastUpdateTime ?: 0L,
-            accepted = AndroidAutoRule.accepts(record.initiating, record.installer),
+            accepted = isSelf(pending.packageName) ||
+                AndroidAutoRule.accepts(record.initiating, record.installer),
         )
         when (verdict) {
             Verdict.NotInstalled ->
@@ -370,7 +461,7 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
             Verdict.NothingChanged ->
                 finish(describe(pending.label, record, false, false, installerLog(pending)))
             Verdict.Accepted -> {
-                rememberPath(pending.viaShell)
+                if (!isSelf(pending.packageName)) rememberPath(pending.viaShell)
                 stager.clear()
                 finish(describe(pending.label, record, true, false, null), keepStaged = false)
             }
@@ -410,6 +501,8 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
             }
         }
     }
+
+    private fun isSelf(packageName: String): Boolean = packageName == appContext.packageName
 
     private fun rememberPath(shell: Boolean) {
         prefs.edit { putBoolean(KEY_PREFER_SHELL, shell) }
@@ -457,12 +550,15 @@ class PlayInstaller(context: Context, private val adb: AdbRepository) {
             installerPackageName = record.installer,
             initiatingPackageName = record.initiating,
             message = when {
+                !changed && isSelf(record.packageName) ->
+                    "$label was not updated: the install was cancelled or refused."
                 !changed && accepted ->
                     "$label was not installed this time: the install was cancelled or refused. " +
                         "The version already on the phone is still accepted by Android Auto."
                 !changed ->
                     "$label was not installed this time: the install was cancelled or refused. " +
                         "The version already on the phone is not accepted by Android Auto."
+                isSelf(record.packageName) -> "$label was updated."
                 accepted -> "$label is installed, and Android Auto should accept it."
                 else ->
                     "$label is installed, but without the Google Play mark. Android Auto will not show it."

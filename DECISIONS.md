@@ -175,39 +175,47 @@ Written while the owner was away; nothing here is hard to reverse.
   `description`, `version`, optional `versionCode`, `apkUrl`, `apkSha256`,
   `signingCertSha256`. `apkUrl` and `apkSha256` go together and may both be null (then
   only "Install from file" is offered). `signingCertSha256` is required.
-- **Source:** one constant, `CatalogRepository.CATALOG_URL`, currently
-  `https://raw.githubusercontent.com/Apperk274/berks-apps/main/app/src/main/assets/catalog.json`.
-  `Apperk274` is the owner's GitHub account (it is the remote of `android-auto-caster`),
-  so nobody else can publish at that address; the repo name `berks-apps` is a guess at
-  where this project would live if it became public. Today the address does not serve a
-  catalog and the app silently uses the bundled list (or the last list it downloaded).
-  The app does try this address at every start and on Refresh. Whoever controls it can
-  add new downloadable apps to the list (with their own certificates), so only ever
-  point it at a place the owner controls; set it to an empty string to turn the online
-  list off.
-  **Remote download cannot work until an APK and a catalog are published somewhere
-  public** (for example a public repo with a GitHub release). To enable it: host the
-  APK, put its URL and SHA-256 in the catalog, host the catalog, and point `CATALOG_URL`
-  at it. The download path is implemented but has only been exercised by unit tests of
-  its checks, never against a real server.
+- **Source:** the same file serves two purposes. It is bundled into the APK as the
+  fallback list, and the copy on the `main` branch of the public repository
+  `Apperk274/berks-apps` is the online list
+  (`CatalogRepository.CATALOG_URL`, a `raw.githubusercontent.com` address). The app
+  fetches it at start and on **Refresh**, keeps the last good copy, and falls back to
+  the bundled one. Whoever can push to that branch controls which apps are offered, so
+  protect the GitHub account.
+- **Where APKs live:** GitHub releases of that same repository, for both apps, although
+  Auto Caster's source is in a private repository. Alternatives were a separate
+  "releases" repository or a release per app repository; one public place is simplest.
 - **Trust rules:**
-  - HTTPS only, including every redirect hop (`catalog/HttpsFetcher.kt`); cleartext is
-    disabled in the manifest.
+  - HTTPS only, and only to `github.com`, `raw.githubusercontent.com`,
+    `objects.githubusercontent.com` and `release-assets.githubusercontent.com`
+    (`catalog/DownloadPolicy.kt`). Redirects are followed by hand (parsed leniently, then checked), at most five, and
+    each hop must be on that list. A catalog whose `apkUrl` is anywhere else is rejected
+    as a whole. If GitHub starts serving release files from another host, add it to
+    `DownloadPolicy.GITHUB_HOSTS` and ship an update.
   - A downloaded APK must match the catalog's package, SHA-256 and signing certificate.
+    A partial or cancelled download is deleted; a size that differs from the announced
+    length is an error.
   - A file-picked APK whose package is in the catalog must match the catalog's signing
-    certificate. Its SHA-256 is **not** checked, because debug builds change on every
-    build. A file-picked APK that is not in the catalog is allowed, with a warning.
+    certificate. Its SHA-256 is not checked (a locally built APK differs). A file-picked
+    APK that is not in the catalog is allowed, with a warning.
   - An online entry for a package that is also in the bundled list is ignored if its
     signing certificate differs from the bundled one. So the online list cannot swap the
-    key of a known app; rotating a key needs an app update.
-- **Bundled Auto Caster pin:**
-  `898249fd07c590fc1d4dd02c6f543cdc790d2df8ca5bdb4ebf9499520729cd71`, the certificate
-  of the existing `app-debug.apk`, i.e. **this PC's Android debug key**. An Auto Caster
-  built on another machine, or signed with a release key, will be refused until the pin
-  in `assets/catalog.json` is updated. Print a new one with
-  `apksigner verify --print-certs app-debug.apk`.
+    key of a known app; rotating a key needs an app update. New apps added only online
+    are trusted on the strength of the online list alone.
+- **Pinned certificate:** both entries pin the release key,
+  `97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6`. The earlier pin
+  (a debug key) is gone, so debug-signed APKs of these two packages are refused.
 - **Version comparison:** `versionCode` when both sides have it, otherwise dotted
-  version names (`core/Versions.kt`).
+  version names (`core/Versions.kt`). The card shows **Install**, **Update to x**,
+  **Reinstall to fix** (installed but not accepted by Android Auto) or a small
+  **Reinstall**.
+- **Debug-only override:** a debug build reads an optional first line from
+  `files/catalog-override.txt` in its private storage and uses it as the catalog
+  address, also allowing that one host (over plain HTTP if the address says so). It
+  exists to test downloads against a local server. The code is in
+  `app/src/debug/.../BuildOverrides.kt`; the release source set has a version that
+  returns nothing, and cleartext is only enabled in the debug manifest, so released
+  APKs cannot be redirected.
 
 ## 10. Shell command safety
 
@@ -253,5 +261,83 @@ Written while the owner was away; nothing here is hard to reverse.
   APK).
 - UnknownAuto's hint text about third-party installer apps; the app still routes around
   them by naming the system installer.
-- Auto-connect in the background, a "forget pairing" button, download progress.
-- Release signing and minification.
+- Auto-connect in the background, a "forget pairing" button, resuming a broken download.
+- Minification (see 14).
+
+## 14. Release signing key shared by both apps
+
+- **Decision:** one RSA-4096 key (alias `berk`, valid until 2059) in
+  `%USERPROFILE%\.android\berk-release.jks`, outside every repository. Its path, alias
+  and passwords are Gradle properties in the user-level
+  `%USERPROFILE%\.gradle\gradle.properties` (`BERK_RELEASE_STORE_FILE`,
+  `BERK_RELEASE_STORE_PASSWORD`, `BERK_RELEASE_KEY_ALIAS`, `BERK_RELEASE_KEY_PASSWORD`).
+  Both apps' `app/build.gradle.kts` define a `release` signing config from those
+  properties and stop `assembleRelease` with a clear message when they are missing.
+  Debug builds do not need them.
+- **Alternatives:** a key per app (two things to lose, and the catalog pin logic gains
+  nothing); the key in the repository, encrypted (one leaked password away from
+  disaster); Play App Signing (the apps are not on Play).
+- **Why one key:** both apps belong to one person and are published from one place.
+- **Risk to manage:** the keystore and its password exist only on this PC. **Back both
+  up.** Losing them means no installed copy can ever be updated again. Leaking them
+  means someone else can sign updates the app would accept, so treat a leak as "publish
+  a new app under a new key".
+- **Certificate SHA-256:**
+  `97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6`.
+- **Minification:** left off. Reflection is used on purpose (libadb finds Conscrypt by
+  name, the `app_process` helper is started by class name), so turning R8 on needs keep
+  rules and a device test. The release APK is about 35 MB because of that.
+
+## 15. Release process and naming
+
+- **Decision:** `tools/release.ps1` (Windows PowerShell 5.1) builds, checks and stages
+  a release, and publishes only with `-Publish`. Tags are `autocaster-v<versionName>`
+  and `berksapps-v<versionName>`; files are `autocaster-<versionName>.apk` and
+  `berksapps-<versionName>.apk`; download addresses are
+  `https://github.com/Apperk274/berks-apps/releases/download/<tag>/<file>`.
+- **What the script guarantees:** the APK's package is the expected one, its version is
+  the one in `app/build.gradle.kts`, it has exactly one signer, and that signer is the
+  certificate already pinned in the catalog.
+- **Versions:** `appVersionCode` and `appVersionName` at the top of each
+  `app/build.gradle.kts`. Both apps start public life at 0.1.0 (1).
+- **Two catalog states, on purpose.** The catalog on `main` is live for every installed
+  copy, so it may only advertise files that exist. The script therefore never edits the
+  working-tree catalog (apart from a temporary swap during the Berk's Apps build, undone
+  in a `finally`). It writes the catalog-to-be to `dist/catalog.json`; that file replaces
+  the tracked one only after the releases are created.
+- **Order when publishing:** push the source, create the GitHub releases, then copy
+  `dist/catalog.json` over the tracked catalog, commit and push. The script's hint,
+  `-Publish`, and the README all use this order. `-Publish` refuses to run with any
+  uncommitted change.
+- **Already released versions are skipped:** when the catalog lists an app's current
+  version code with a download and `gh release view <tag>` finds the tag, the app is not
+  rebuilt, so the hash of a published file can never be overwritten. If the tag exists
+  but the catalog does not list it, `-Publish` stops instead of guessing. Without `gh`
+  the check cannot be made and the script says so.
+- **Self entry:** an APK cannot contain its own hash. Berk's Apps is built with a
+  catalog holding the newest entry of every other app and an empty download for itself.
+  So releasing Auto Caster alone never needs a new Berk's Apps (installed copies read
+  the online list), and the list inside a Berk's Apps APK is only a fallback.
+- **First publish:** the tracked catalog has both entries with empty downloads. That is
+  what goes up with the first push; the full catalog follows after the two releases.
+- **Alternatives:** GitHub Actions (would need the signing key as a repository secret,
+  and Auto Caster's source is private); a Gradle task (awkward across two repositories).
+
+## 16. Signature changes and self-update
+
+- **Old debug-signed copies:** Android refuses to update across signing keys. The list
+  compares the installed app's signer with the catalog pin and, on a mismatch, replaces
+  the install buttons with an explanation and **Uninstall old version** (the system
+  uninstall dialog; needs `REQUEST_DELETE_PACKAGES`). The same check runs again just
+  before the installer is opened, for files picked by hand.
+- **Berk's Apps itself** is a catalog entry like any other, without the Android Auto
+  line and without "Install from file". An old debug-signed copy cannot replace itself,
+  so its card links to the releases page and tells the user to download first, then
+  uninstall.
+- **Being killed by its own update:** Android stops the app while replacing it. The
+  pending install is on disk, so the next start checks the result once and shows
+  "Berk's Apps was updated". For its own package the Android Auto rule is not applied
+  and the remembered install path is not changed.
+- **Tested** on the API 37 emulator with a build signed with the release key and a
+  local test catalog offering 0.1.1: download with progress, install, relaunch, result
+  card, version 0.1.1 installed.
