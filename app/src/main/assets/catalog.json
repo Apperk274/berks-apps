@@ -5,10 +5,10 @@
       "name": "Auto Caster",
       "package": "dev.personal.autocaster",
       "description": "Mirrors your phone screen to the Android Auto display.",
-      "version": "0.1.0",
-      "versionCode": 1,
-      "apkUrl": "https://github.com/Apperk274/berks-apps/releases/download/autocaster-v0.1.0/autocaster-0.1.0.apk",
-      "apkSha256": "3f28cfa6ef93939829a08607810f0c8e7926b75ec4eaf455c334f0edc274114b",
+      "version": "0.1.1",
+      "versionCode": 2,
+      "apkUrl": "https://github.com/Apperk274/berks-apps/releases/download/autocaster-v0.1.1/autocaster-0.1.1.apk",
+      "apkSha256": "9c018466051adf8394a167082e35d87cac4d2155820be254cfbb6ac3837456e3",
       "signingCertSha256": "97ce724a7bee251fd62c2c745c2907d8221cf0ba4178142b49485203487207b6"
     },
     {
